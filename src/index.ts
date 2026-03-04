@@ -31,3 +31,7 @@ export { runSimulation, clearCache } from './services/simulator'
 export type { SimulatorOptions } from './services/simulator'
 
 export { parseQASM, circuitToQASM } from './lib/qasm'
+export { optimizeCircuit } from './lib/transpiler'
+export { decomposeCircuit } from './lib/decomposer'
+export { QuantumMetrics } from './lib/quantum/metrics'
+export * as QNLP from './lib/quantum/qnlp/QNLPService'

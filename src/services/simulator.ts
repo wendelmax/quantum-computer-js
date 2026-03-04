@@ -1,6 +1,8 @@
 import type { Circuit } from '../types/Circuit'
 import type { Result } from '../types/Result'
 import { C, Complex, add, mul, norm2 } from '../lib/quantum/complex'
+import { optimizeCircuit } from '../lib/transpiler'
+import { NoiseModel } from '../lib/quantum/noise'
 
 const gateMatrixCache = new Map<string, Complex[][]>()
 const SQRT2 = Math.SQRT2
@@ -111,10 +113,15 @@ function gateMatrix(name: string, angle?: number): Complex[][] {
   } else if (name === 'Z') {
     matrix = [[C(1), C(0)], [C(0), C(-1)]]
   } else if (name === 'S') {
-    matrix = [[C(1), C(0)], [C(0), C(0, 1)]]
+    matrix = [[C(1, 0), C(0, 0)], [C(0, 0), C(0, 1)]]
+  } else if (name === 'S_DAG') {
+    matrix = [[C(1, 0), C(0, 0)], [C(0, 0), C(0, -1)]]
   } else if (name === 'T') {
     const s = Math.SQRT1_2
-    matrix = [[C(1), C(0)], [C(0), C(s, s)]]
+    matrix = [[C(1, 0), C(0, 0)], [C(0, 0), C(s, s)]]
+  } else if (name === 'T_DAG') {
+    const s = Math.SQRT1_2
+    matrix = [[C(1, 0), C(0, 0)], [C(0, 0), C(s, -s)]]
   } else if (angle !== undefined) {
     const c = Math.cos(angle)
     const s = Math.sin(angle)
@@ -144,30 +151,19 @@ function gateMatrix(name: string, angle?: number): Complex[][] {
 
 export type SimulatorOptions = {
   shots?: number
-  noise?: number
+  noise?: number // Probability of error
+  noiseType?: 'bitflip' | 'phaseflip' | 'depolarizing' | 'amplitude'
+  optimize?: boolean
 }
 
-function applyNoise(state: Complex[], n: number, p: number): Complex[] {
-  if (p <= 0) return state
-  const size = state.length
-  const out = state.slice()
-  for (let q = 0; q < n; q++) {
-    if (Math.random() >= p) continue
-    const stride = 1 << q
-    const period = stride << 1
-    for (let i = 0; i < size; i += period) {
-      for (let j = 0; j < stride; j++) {
-        const i0 = i + j
-        const i1 = i + j + stride
-          ;[out[i0], out[i1]] = [out[i1], out[i0]]
-      }
-    }
-  }
-  return out
-}
+
 
 export async function runSimulation(circuit: Circuit, options: SimulatorOptions = {}): Promise<Result> {
-  const { shots, noise = 0 } = options
+  const { shots, noise = 0, optimize = false } = options
+
+  if (optimize) {
+    circuit = optimizeCircuit(circuit)
+  }
   const w = getWorker()
   if (w && shots == null && noise === 0) {
     const response: Result = await new Promise((resolve, reject) => {
@@ -209,7 +205,16 @@ export async function runSimulation(circuit: Circuit, options: SimulatorOptions 
       const U = gateMatrix(gate.type, gate.angle)
       if (U) state = applySingleQubit(state, gate.target, U)
     }
-    if (noise > 0) state = applyNoise(state, n, noise)
+
+    if (noise > 0) {
+      const type = options.noiseType || 'bitflip'
+      for (let q = 0; q < n; q++) {
+        if (type === 'bitflip') state = NoiseModel.applyBitFlip(state, q, noise)
+        else if (type === 'phaseflip') state = NoiseModel.applyPhaseFlip(state, q, noise)
+        else if (type === 'depolarizing') state = NoiseModel.applyDepolarizing(state, q, noise)
+        else if (type === 'amplitude') state = NoiseModel.applyAmplitudeDamping(state, q, noise)
+      }
+    }
   }
 
   const probs: Record<string, number> = {}

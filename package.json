@@ -1,6 +1,6 @@
 {
     "name": "quantum-computer-js",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Interactive quantum computing simulator, fully-typed with math utilities, gates, and OpenQASM support.",
     "main": "dist/index.umd.js",
     "module": "dist/index.es.js",

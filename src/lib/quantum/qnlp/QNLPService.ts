@@ -39,9 +39,17 @@ export const VOCABULARY: Record<string, WordEncoding> = {
     label: '😊 happy',
     circuit: (t) => [{ type: 'RY', target: t, angle: 0.8 }]
   },
+  'sad': {
+    label: '😢 sad',
+    circuit: (t) => [{ type: 'RY', target: t, angle: -0.8 }]
+  },
   'hungry': {
     label: '🤤 hungry',
-    circuit: (t) => [{ type: 'RY', target: t, angle: -0.8 }]
+    circuit: (t) => [{ type: 'RY', target: t, angle: -0.4 }]
+  },
+  'quantum': {
+    label: '⚛️ quantum',
+    circuit: (t) => [{ type: 'H', target: t }, { type: 'T', target: t }]
   }
 }
 
